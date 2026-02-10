@@ -1,0 +1,235 @@
+"""
+생기부추월차선 블로그 글 생성기 - 웹 버전
+Flask 서버로 팀원들과 공유하여 사용할 수 있습니다.
+"""
+
+import os
+import sys
+import json
+import time
+import re
+import queue
+import threading
+
+from flask import Flask, render_template, request, jsonify, Response, send_from_directory
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from generate_post import (
+    load_style_guide,
+    load_sample_posts,
+    search_naver,
+    save_output,
+)
+import anthropic
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+app = Flask(__name__)
+
+
+def get_api_key():
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if key:
+        return key
+    env_path = os.path.join(BASE_DIR, ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("ANTHROPIC_API_KEY="):
+                    return line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/generate", methods=["POST"])
+def generate():
+    keyword = request.json.get("keyword", "").strip()
+    if not keyword:
+        return jsonify({"error": "키워드를 입력해주세요."}), 400
+
+    api_key = get_api_key()
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY가 설정되지 않았습니다."}), 500
+
+    progress_q = queue.Queue()
+
+    def worker():
+        try:
+            progress_q.put({"step": 1, "msg": "스타일 가이드 및 참고 글 로딩 중..."})
+            style_guide = load_style_guide()
+            samples = load_sample_posts(keyword, n=3)
+
+            progress_q.put({"step": 2, "msg": "네이버에서 최신 입시 정보 검색 중..."})
+            web_results = search_naver(keyword)
+
+            web_info = ""
+            if web_results:
+                web_info = "아래는 최신 웹 검색 결과입니다. 이 중 신뢰할 만한 정보를 활용하세요:\n\n"
+                for i, r in enumerate(web_results, 1):
+                    web_info += f"[{i}] {r['title']}\n{r['snippet']}\n\n"
+            else:
+                web_info = "(웹 검색 결과가 없습니다. 일반적인 입시 지식을 활용하세요.)\n"
+
+            sample_text = ""
+            if samples:
+                sample_text = "아래는 기존에 작성된 블로그 글의 예시입니다. 문체와 구조를 참고하세요:\n\n"
+                for i, s in enumerate(samples, 1):
+                    sample_text += f"--- 예시 {i} ---\n{s}\n\n"
+
+            system_prompt = (
+                f"{style_guide}\n\n"
+                "═══════════════════════════════════════\n"
+                "[참고 예시 글]\n"
+                "═══════════════════════════════════════\n"
+                f"{sample_text}"
+            )
+
+            user_prompt = (
+                f'키워드: "{keyword}"\n\n'
+                f"{web_info}\n"
+                "위 키워드로 블로그 글을 작성해주세요.\n\n"
+                "작성 규칙:\n"
+                "1. 반드시 4단계 구조를 따르세요: 도입/공감 → 정보/분석 → 권위/차별화 → CTA/마무리\n"
+                "2. 본문 약 3000자 (공백 포함, 빈 줄 제외) 분량으로 작성\n"
+                "3. 웹 검색에서 얻은 최신 정보(2025~2026년)를 자연스럽게 반영\n"
+                '4. 제목은 "키워드, 추가정보" 패턴으로 작성\n'
+                "5. 네이버 블로그에 바로 붙여넣기 할 수 있도록 순수 텍스트로 작성 (마크다운 금지)\n"
+                "6. 글 끝에 생기부 연구소 CTA 블록을 반드시 포함\n"
+                "7. 문단은 1~3문장으로 짧게 끊고, 문단 사이에 빈 줄을 넣으세요\n"
+                "8. 격식체(-합니다, -입니다) 위주로 작성하세요\n\n"
+                "출력 형식:\n"
+                "[제목]\n(제목만 한 줄)\n\n"
+                "[본문]\n(본문 전체)\n"
+            )
+
+            progress_q.put({"step": 3, "msg": "Claude API로 글 생성 중... (30초~1분 소요)"})
+
+            client = anthropic.Anthropic(api_key=api_key)
+            message = client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=6000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+
+            response_text = message.content[0].text
+
+            title = ""
+            body = response_text
+
+            title_match = re.search(r"\[제목\]\s*\n(.+)", response_text)
+            body_match = re.search(r"\[본문\]\s*\n([\s\S]+)", response_text)
+
+            if title_match:
+                title = title_match.group(1).strip()
+            if body_match:
+                body = body_match.group(1).strip()
+
+            if not title_match and not body_match:
+                lines = response_text.strip().split("\n")
+                if lines:
+                    title = lines[0].strip()
+                    body = "\n".join(lines[1:]).strip()
+
+            content_lines = [l for l in body.split("\n") if l.strip()]
+            char_count = sum(len(l) for l in content_lines)
+
+            filepath = save_output(keyword, title, body)
+            filename = os.path.basename(filepath)
+
+            progress_q.put({
+                "step": 4,
+                "msg": "완료!",
+                "done": True,
+                "title": title,
+                "body": body,
+                "char_count": char_count,
+                "filename": filename,
+                "web_count": len(web_results),
+            })
+
+        except anthropic.AuthenticationError:
+            progress_q.put({"step": -1, "msg": "API 키가 유효하지 않습니다.", "error": True})
+        except anthropic.RateLimitError:
+            progress_q.put({"step": -1, "msg": "API 요청 한도를 초과했습니다.", "error": True})
+        except Exception as e:
+            progress_q.put({"step": -1, "msg": f"오류 발생: {str(e)}", "error": True})
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+    def stream():
+        while True:
+            try:
+                data = progress_q.get(timeout=120)
+                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                if data.get("done") or data.get("error"):
+                    break
+            except queue.Empty:
+                yield f"data: {json.dumps({'step': 0, 'msg': '처리 중...'}, ensure_ascii=False)}\n\n"
+
+    return Response(stream(), mimetype="text/event-stream")
+
+
+@app.route("/history")
+def history():
+    files = []
+    if os.path.isdir(OUTPUT_DIR):
+        for fname in sorted(os.listdir(OUTPUT_DIR), reverse=True):
+            if not fname.endswith(".txt"):
+                continue
+            fpath = os.path.join(OUTPUT_DIR, fname)
+            title = keyword = created = ""
+            try:
+                with open(fpath, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("제목:"):
+                            title = line[3:].strip()
+                        elif line.startswith("키워드:"):
+                            keyword = line[4:].strip()
+                        elif line.startswith("생성일:"):
+                            created = line[4:].strip()
+                        elif line.startswith("---"):
+                            break
+            except Exception:
+                pass
+            files.append({
+                "filename": fname,
+                "title": title,
+                "keyword": keyword,
+                "created": created,
+            })
+    return jsonify(files)
+
+
+@app.route("/download/<path:filename>")
+def download(filename):
+    return send_from_directory(OUTPUT_DIR, filename, as_attachment=True)
+
+
+if __name__ == "__main__":
+    print()
+    print("=" * 55)
+    print("  생기부 연구소 - 블로그 글 생성기 (웹 버전)")
+    print("=" * 55)
+    print()
+
+    key = get_api_key()
+    if key:
+        print(f"  API Key: {key[:12]}...{key[-4:]}")
+    else:
+        print("  [경고] ANTHROPIC_API_KEY 미설정!")
+
+    print(f"  로컬 접속: http://localhost:5000")
+    print()
+    print("  종료: Ctrl+C")
+    print("=" * 55)
+    print()
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>생기부 연구소 - 블로그 글 생성기</title>
+<style>
+  :root {
+    --primary: #6d28d9;
+    --primary-hover: #5b21b6;
+    --bg: #faf5ff;
+    --card: #ffffff;
+    --border: #e9d5ff;
+    --text: #1e1b4b;
+    --text-light: #6b7280;
+    --success: #059669;
+    --error: #dc2626;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, 'Malgun Gothic', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 50%, #7c3aed 100%);
+    color: #fff;
+    padding: 28px 0;
+    text-align: center;
+  }
+  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .header p { color: #c4b5fd; font-size: 14px; margin-top: 6px; }
+  .container { max-width: 800px; margin: 0 auto; padding: 24px 20px 60px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(109,40,217,0.06);
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .input-row { display: flex; gap: 10px; }
+  .input-row input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-row input:focus { border-color: var(--primary); }
+  .input-row input::placeholder { color: #a78bfa; }
+  .btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary:disabled { background: #a78bfa; cursor: not-allowed; }
+  .progress-area { display: none; margin-top: 16px; }
+  .progress-area.show { display: block; }
+  .progress-steps { display: flex; flex-direction: column; gap: 8px; }
+  .step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; color: var(--text-light);
+  }
+  .step.active { color: var(--primary); font-weight: 600; }
+  .step.done { color: var(--success); }
+  .step.error { color: var(--error); }
+  .step-icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .step.active .step-icon { background: #ede9fe; color: var(--primary); }
+  .step.done .step-icon { background: #d1fae5; color: var(--success); }
+  .step.error .step-icon { background: #fee2e2; color: var(--error); }
+  .step:not(.active):not(.done):not(.error) .step-icon { background: #f3f4f6; color: #9ca3af; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid #ede9fe;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  .result-area { display: none; }
+  .result-area.show { display: block; }
+  .result-header {
+    display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .result-title { font-size: 18px; font-weight: 700; }
+  .result-meta { font-size: 13px; color: var(--text-light); }
+  .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .btn-sm:hover { background: #faf5ff; }
+  .btn-copy { border-color: var(--primary); color: var(--primary); }
+  .btn-copy:hover { background: #f5f3ff; }
+  .btn-download { border-color: var(--success); color: var(--success); }
+  .btn-download:hover { background: #ecfdf5; }
+  .result-body {
+    background: #faf5ff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.8;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #4c1d95; color: #fff;
+    padding: 12px 24px; border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    opacity: 0; transition: all 0.3s;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table th {
+    text-align: left; font-size: 12px; font-weight: 600;
+    color: var(--text-light);
+    letter-spacing: 0.5px;
+    padding: 8px 12px; border-bottom: 2px solid var(--border);
+  }
+  .history-table td {
+    padding: 10px 12px; font-size: 14px;
+    border-bottom: 1px solid #f3e8ff;
+  }
+  .history-table tr:hover td { background: #faf5ff; }
+  .history-empty {
+    text-align: center; padding: 32px;
+    color: var(--text-light); font-size: 14px;
+  }
+  .link-btn {
+    color: var(--primary); text-decoration: none;
+    font-weight: 500; font-size: 13px;
+  }
+  .link-btn:hover { text-decoration: underline; }
+  @media (max-width: 600px) {
+    .input-row { flex-direction: column; }
+    .btn { width: 100%; }
+    .result-actions { width: 100%; }
+    .result-actions .btn-sm { flex: 1; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>생기부 연구소 - 블로그 글 생성기</h1>
+  <p>키워드를 입력하면 3000자 분량의 블로그 글을 자동으로 생성합니다</p>
+</div>
+
+<div class="container">
+
+  <div class="card">
+    <div class="card-title">키워드 입력</div>
+    <div class="input-row">
+      <input type="text" id="keyword" placeholder="예) 생기부 세특, 의대 수시, 수학 주제탐구..."
+             autocomplete="off">
+      <button class="btn btn-primary" id="generateBtn" onclick="generate()">
+        글 생성
+      </button>
+    </div>
+    <div class="progress-area" id="progressArea">
+      <div class="progress-steps" id="progressSteps">
+        <div class="step" id="step1">
+          <div class="step-icon">1</div>
+          <span>스타일 가이드 및 참고 글 로딩</span>
+        </div>
+        <div class="step" id="step2">
+          <div class="step-icon">2</div>
+          <span>네이버에서 최신 입시 정보 검색</span>
+        </div>
+        <div class="step" id="step3">
+          <div class="step-icon">3</div>
+          <span>Claude API로 글 생성 (30초~1분)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card result-area" id="resultArea">
+    <div class="result-header">
+      <div>
+        <div class="result-title" id="resultTitle"></div>
+        <div class="result-meta" id="resultMeta"></div>
+      </div>
+      <div class="result-actions">
+        <button class="btn-sm btn-copy" onclick="copyResult()">복사하기</button>
+        <a class="btn-sm btn-download" id="downloadLink" href="#" download>TXT 다운로드</a>
+      </div>
+    </div>
+    <div class="result-body" id="resultBody"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">생성 이력</div>
+    <div id="historyArea">
+      <div class="history-empty">로딩 중...</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+$('keyword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') generate();
+});
+
+let currentFilename = '';
+
+function generate() {
+  const kw = $('keyword').value.trim();
+  if (!kw) {
+    showToast('키워드를 입력해주세요.');
+    $('keyword').focus();
+    return;
+  }
+
+  $('generateBtn').disabled = true;
+  $('generateBtn').textContent = '생성 중...';
+  $('progressArea').classList.add('show');
+  $('resultArea').classList.remove('show');
+  resetSteps();
+
+  fetch('/generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({keyword: kw}),
+  }).then(response => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function read() {
+      reader.read().then(({done, value}) => {
+        if (done) { finish(); return; }
+        buffer += decoder.decode(value, {stream: true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              handleProgress(data);
+            } catch {}
+          }
+        }
+        read();
+      });
+    }
+    read();
+  }).catch(err => {
+    showToast('네트워크 오류: ' + err.message);
+    finish();
+  });
+}
+
+function handleProgress(data) {
+  if (data.error) {
+    setStepError(data.step, data.msg);
+    showToast(data.msg);
+    finish();
+    return;
+  }
+  if (data.step >= 1 && data.step <= 3) {
+    for (let i = 1; i < data.step; i++) setStepDone(i);
+    setStepActive(data.step);
+  }
+  if (data.done) {
+    setStepDone(1); setStepDone(2); setStepDone(3);
+    currentFilename = data.filename;
+    $('resultTitle').textContent = data.title;
+    $('resultMeta').textContent =
+      data.char_count + '자  |  웹 검색 ' + data.web_count + '건 반영  |  ' + $('keyword').value.trim();
+    $('resultBody').textContent = data.body;
+    $('downloadLink').href = '/download/' + encodeURIComponent(data.filename);
+    $('resultArea').classList.add('show');
+    $('resultArea').scrollIntoView({behavior: 'smooth', block: 'start'});
+    showToast('글 생성 완료!');
+    loadHistory();
+    finish();
+  }
+}
+
+function finish() {
+  $('generateBtn').disabled = false;
+  $('generateBtn').textContent = '글 생성';
+}
+
+function resetSteps() {
+  for (let i = 1; i <= 3; i++) {
+    const el = $('step' + i);
+    el.className = 'step';
+    el.querySelector('.step-icon').innerHTML = i;
+  }
+}
+function setStepActive(n) {
+  const el = $('step' + n);
+  el.className = 'step active';
+  el.querySelector('.step-icon').innerHTML = '<div class="spinner"></div>';
+}
+function setStepDone(n) {
+  const el = $('step' + n);
+  el.className = 'step done';
+  el.querySelector('.step-icon').innerHTML = '&#10003;';
+}
+function setStepError(n, msg) {
+  for (let i = 1; i <= 3; i++) {
+    const el = $('step' + i);
+    if (el.classList.contains('active')) {
+      el.className = 'step error';
+      el.querySelector('.step-icon').innerHTML = '!';
+    }
+  }
+}
+
+function copyResult() {
+  const text = $('resultBody').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('클립보드에 복사되었습니다.');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('클립보드에 복사되었습니다.');
+  });
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function loadHistory() {
+  fetch('/history').then(r => r.json()).then(data => {
+    if (!data.length) {
+      $('historyArea').innerHTML = '<div class="history-empty">아직 생성된 글이 없습니다.</div>';
+      return;
+    }
+    let html = '<table class="history-table"><thead><tr>' +
+      '<th>생성일</th><th>키워드</th><th>제목</th><th></th>' +
+      '</tr></thead><tbody>';
+    for (const item of data.slice(0, 30)) {
+      html += '<tr>' +
+        '<td>' + (item.created || '-') + '</td>' +
+        '<td>' + (item.keyword || '-') + '</td>' +
+        '<td>' + (item.title || '-') + '</td>' +
+        '<td><a class="link-btn" href="/download/' +
+          encodeURIComponent(item.filename) + '" download>다운로드</a></td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+    $('historyArea').innerHTML = html;
+  });
+}
+
+loadHistory();
+</script>
+
+</body>
+</html>
