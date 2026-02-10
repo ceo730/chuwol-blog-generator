@@ -18,6 +18,43 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
+# 보이지 않는 유니코드 문자 제거용 패턴
+_INVISIBLE_CHARS = re.compile(
+    "["
+    "\u00a0"    # Non-breaking space
+    "\u00ad"    # Soft hyphen
+    "\u034f"    # Combining grapheme joiner
+    "\u061c"    # Arabic letter mark
+    "\u115f"    # Hangul choseong filler
+    "\u1160"    # Hangul jungseong filler
+    "\u17b4"    # Khmer vowel inherent aq
+    "\u17b5"    # Khmer vowel inherent aa
+    "\u180e"    # Mongolian vowel separator
+    "\u200b"    # Zero-width space
+    "\u200c"    # Zero-width non-joiner
+    "\u200d"    # Zero-width joiner
+    "\u200e"    # Left-to-right mark
+    "\u200f"    # Right-to-left mark
+    "\u202a-\u202e"  # Directional formatting
+    "\u2060"    # Word joiner
+    "\u2066-\u2069"  # Directional isolates
+    "\u2028"    # Line separator
+    "\u2029"    # Paragraph separator
+    "\u205f"    # Medium mathematical space
+    "\u3000"    # Ideographic space
+    "\u3164"    # Hangul filler
+    "\ufeff"    # BOM / Zero-width no-break space
+    "\uffa0"    # Halfwidth Hangul filler
+    "\ufff9-\ufffb"  # Interlinear annotation
+    "]"
+)
+
+
+def clean_invisible_chars(text):
+    """보이지 않는 유니코드 문자를 제거하고 일반 공백(ASCII space)만 남깁니다."""
+    text = _INVISIBLE_CHARS.sub("", text)
+    return text
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STYLE_GUIDE_PATH = os.path.join(BASE_DIR, "style_guide.txt")
 POSTS_DIRS = [
@@ -248,6 +285,10 @@ def generate_article(keyword, api_key):
         if lines:
             title = lines[0].strip()
             body = "\n".join(lines[1:]).strip()
+
+    # 보이지 않는 유니코드 문자 제거
+    title = clean_invisible_chars(title)
+    body = clean_invisible_chars(body)
 
     content_lines = [l for l in body.split("\n") if l.strip()]
     char_count = sum(len(l) for l in content_lines)
