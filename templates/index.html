@@ -15,6 +15,7 @@
     --text-light: #6b7280;
     --success: #059669;
     --error: #dc2626;
+    --warning: #d97706;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -47,18 +48,30 @@
     margin-bottom: 16px;
     letter-spacing: 0.5px;
   }
-  .input-row { display: flex; gap: 10px; }
-  .input-row input {
-    flex: 1;
+  .input-area { display: flex; flex-direction: column; gap: 10px; }
+  .input-area textarea {
+    width: 100%;
     padding: 12px 16px;
     border: 2px solid var(--border);
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 15px;
+    font-family: inherit;
     outline: none;
     transition: border-color 0.2s;
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.6;
   }
-  .input-row input:focus { border-color: var(--primary); }
-  .input-row input::placeholder { color: #a78bfa; }
+  .input-area textarea:focus { border-color: var(--primary); }
+  .input-area textarea::placeholder { color: #a78bfa; }
+  .input-controls {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  .keyword-count {
+    font-size: 13px; color: var(--text-light);
+  }
+  .keyword-count strong { color: var(--primary); }
+  .keyword-count.over { color: var(--error); }
   .btn {
     padding: 12px 28px;
     border: none;
@@ -72,48 +85,100 @@
   .btn-primary { background: var(--primary); color: #fff; }
   .btn-primary:hover { background: var(--primary-hover); }
   .btn-primary:disabled { background: #a78bfa; cursor: not-allowed; }
-  .progress-area { display: none; margin-top: 16px; }
-  .progress-area.show { display: block; }
-  .progress-steps { display: flex; flex-direction: column; gap: 8px; }
-  .step {
-    display: flex; align-items: center; gap: 10px;
-    font-size: 14px; color: var(--text-light);
+  .btn-stop { background: var(--error); color: #fff; display: none; }
+  .btn-stop:hover { background: #b91c1c; }
+
+  /* 전체 진행률 바 */
+  .batch-progress { display: none; margin-top: 16px; }
+  .batch-progress.show { display: block; }
+  .batch-progress-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
   }
-  .step.active { color: var(--primary); font-weight: 600; }
-  .step.done { color: var(--success); }
-  .step.error { color: var(--error); }
-  .step-icon {
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px;
-    flex-shrink: 0;
+  .batch-progress-label { font-size: 14px; font-weight: 600; color: var(--primary); }
+  .batch-progress-count { font-size: 13px; color: var(--text-light); }
+  .progress-bar-outer {
+    width: 100%; height: 8px;
+    background: #ede9fe; border-radius: 4px; overflow: hidden;
   }
-  .step.active .step-icon { background: #ede9fe; color: var(--primary); }
-  .step.done .step-icon { background: #d1fae5; color: var(--success); }
-  .step.error .step-icon { background: #fee2e2; color: var(--error); }
-  .step:not(.active):not(.done):not(.error) .step-icon { background: #f3f4f6; color: #9ca3af; }
+  .progress-bar-inner {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #7c3aed, #6d28d9);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .current-keyword-status {
+    margin-top: 10px; font-size: 13px; color: var(--text-light);
+    display: flex; align-items: center; gap: 8px;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner {
-    width: 18px; height: 18px;
+  .spinner-sm {
+    width: 14px; height: 14px;
     border: 2px solid #ede9fe;
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
   }
-  .result-area { display: none; }
-  .result-area.show { display: block; }
-  .result-header {
-    display: flex; justify-content: space-between;
-    align-items: center; flex-wrap: wrap; gap: 10px;
+
+  /* 결과 목록 */
+  .results-section { display: none; }
+  .results-section.show { display: block; }
+  .results-summary {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+  }
+  .results-summary-text { font-size: 14px; color: var(--text-light); }
+  .results-summary-text strong { color: var(--text); }
+  .btn-copy-all {
+    padding: 8px 16px; font-size: 13px; border-radius: 6px;
+    border: 1px solid var(--primary); background: #fff;
+    color: var(--primary); cursor: pointer; font-weight: 500;
+  }
+  .btn-copy-all:hover { background: #f5f3ff; }
+
+  .result-item {
+    background: #faf5ff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     margin-bottom: 12px;
+    overflow: hidden;
   }
-  .result-title { font-size: 18px; font-weight: 700; }
-  .result-meta { font-size: 13px; color: var(--text-light); }
-  .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .result-item.error {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+  .result-item-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    gap: 10px;
+  }
+  .result-item-header:hover { background: rgba(109,40,217,0.03); }
+  .result-item-left {
+    display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  }
+  .result-num {
+    background: var(--primary); color: #fff;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; flex-shrink: 0;
+  }
+  .result-item.error .result-num { background: var(--error); }
+  .result-item-title {
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .result-item-meta {
+    font-size: 12px; color: var(--text-light); white-space: nowrap;
+  }
+  .result-item-actions {
+    display: flex; gap: 6px; flex-shrink: 0;
+  }
   .btn-sm {
-    padding: 8px 16px;
-    font-size: 13px;
+    padding: 6px 12px;
+    font-size: 12px;
     border-radius: 6px;
     border: 1px solid var(--border);
     background: #fff;
@@ -126,17 +191,31 @@
   .btn-copy:hover { background: #f5f3ff; }
   .btn-download { border-color: var(--success); color: var(--success); }
   .btn-download:hover { background: #ecfdf5; }
-  .result-body {
-    background: #faf5ff;
+  .result-item-body {
+    display: none; padding: 0 16px 16px;
+  }
+  .result-item-body.open { display: block; }
+  .result-body-content {
+    background: #fff;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
+    border-radius: 6px;
+    padding: 16px;
     white-space: pre-wrap;
     font-size: 14px;
     line-height: 1.8;
-    max-height: 600px;
+    max-height: 500px;
     overflow-y: auto;
   }
+  .result-error-msg {
+    padding: 0 16px 12px;
+    font-size: 13px; color: var(--error);
+  }
+  .toggle-arrow {
+    font-size: 12px; color: var(--text-light);
+    transition: transform 0.2s; flex-shrink: 0;
+  }
+  .toggle-arrow.open { transform: rotate(180deg); }
+
   .toast {
     position: fixed;
     bottom: 24px; left: 50%;
@@ -170,10 +249,10 @@
   }
   .link-btn:hover { text-decoration: underline; }
   @media (max-width: 600px) {
-    .input-row { flex-direction: column; }
+    .input-controls { flex-direction: column; align-items: stretch; }
     .btn { width: 100%; }
-    .result-actions { width: 100%; }
-    .result-actions .btn-sm { flex: 1; text-align: center; }
+    .result-item-actions { display: none; }
+    .result-item-header { padding: 10px 12px; }
   }
 </style>
 </head>
@@ -181,50 +260,46 @@
 
 <div class="header">
   <h1>생기부 연구소 - 블로그 글 생성기</h1>
-  <p>키워드를 입력하면 2000~2600자 분량의 블로그 글을 자동으로 생성합니다</p>
+  <p>키워드를 엔터로 구분하여 최대 50개까지 한번에 생성할 수 있습니다</p>
 </div>
 
 <div class="container">
 
   <div class="card">
-    <div class="card-title">키워드 입력</div>
-    <div class="input-row">
-      <input type="text" id="keyword" placeholder="예) 생기부 세특, 의대 수시, 수학 주제탐구..."
-             autocomplete="off">
-      <button class="btn btn-primary" id="generateBtn" onclick="generate()">
-        글 생성
-      </button>
+    <div class="card-title">키워드 입력 (엔터로 구분, 최대 50개)</div>
+    <div class="input-area">
+      <textarea id="keywords" rows="6"
+        placeholder="생기부 세특&#10;의대 수시&#10;수학 주제탐구&#10;학생부종합전형 준비&#10;...한 줄에 키워드 하나씩 입력"></textarea>
+      <div class="input-controls">
+        <div class="keyword-count" id="keywordCount">키워드 <strong>0</strong>개</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-stop" id="stopBtn" onclick="stopGeneration()">중단</button>
+          <button class="btn btn-primary" id="generateBtn" onclick="generate()">일괄 생성</button>
+        </div>
+      </div>
     </div>
-    <div class="progress-area" id="progressArea">
-      <div class="progress-steps" id="progressSteps">
-        <div class="step" id="step1">
-          <div class="step-icon">1</div>
-          <span>스타일 가이드 및 참고 글 로딩</span>
-        </div>
-        <div class="step" id="step2">
-          <div class="step-icon">2</div>
-          <span>네이버에서 최신 입시 정보 검색</span>
-        </div>
-        <div class="step" id="step3">
-          <div class="step-icon">3</div>
-          <span>Claude API로 글 생성 (30초~1분)</span>
-        </div>
+
+    <div class="batch-progress" id="batchProgress">
+      <div class="batch-progress-header">
+        <span class="batch-progress-label" id="batchLabel">생성 진행 중...</span>
+        <span class="batch-progress-count" id="batchCount">0 / 0</span>
+      </div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progressBar"></div>
+      </div>
+      <div class="current-keyword-status" id="currentStatus">
+        <div class="spinner-sm"></div>
+        <span id="currentStatusText">준비 중...</span>
       </div>
     </div>
   </div>
 
-  <div class="card result-area" id="resultArea">
-    <div class="result-header">
-      <div>
-        <div class="result-title" id="resultTitle"></div>
-        <div class="result-meta" id="resultMeta"></div>
-      </div>
-      <div class="result-actions">
-        <button class="btn-sm btn-copy" onclick="copyResult()">복사하기</button>
-        <a class="btn-sm btn-download" id="downloadLink" href="#" download>TXT 다운로드</a>
-      </div>
+  <div class="card results-section" id="resultsSection">
+    <div class="results-summary">
+      <div class="results-summary-text" id="resultsSummary"></div>
+      <button class="btn-copy-all" onclick="copyAllResults()">전체 복사</button>
     </div>
-    <div class="result-body" id="resultBody"></div>
+    <div id="resultsList"></div>
   </div>
 
   <div class="card">
@@ -241,30 +316,57 @@
 <script>
 const $ = id => document.getElementById(id);
 
-$('keyword').addEventListener('keydown', e => {
-  if (e.key === 'Enter') generate();
-});
+let stopped = false;
+let generatedResults = [];
+let doneCount = 0;
+let errorCount = 0;
 
-let currentFilename = '';
+// 키워드 카운트 업데이트
+$('keywords').addEventListener('input', updateKeywordCount);
+
+function updateKeywordCount() {
+  const lines = $('keywords').value.split('\n').filter(l => l.trim());
+  const count = lines.length;
+  const el = $('keywordCount');
+  el.innerHTML = '키워드 <strong>' + count + '</strong>개' + (count > 50 ? ' (최대 50개)' : '');
+  el.className = 'keyword-count' + (count > 50 ? ' over' : '');
+}
 
 function generate() {
-  const kw = $('keyword').value.trim();
-  if (!kw) {
+  const text = $('keywords').value.trim();
+  if (!text) {
     showToast('키워드를 입력해주세요.');
-    $('keyword').focus();
+    $('keywords').focus();
     return;
   }
 
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length > 50) {
+    showToast('키워드는 최대 50개까지 입력 가능합니다.');
+    return;
+  }
+
+  stopped = false;
+  generatedResults = [];
+  doneCount = 0;
+  errorCount = 0;
+
   $('generateBtn').disabled = true;
   $('generateBtn').textContent = '생성 중...';
-  $('progressArea').classList.add('show');
-  $('resultArea').classList.remove('show');
-  resetSteps();
+  $('stopBtn').style.display = 'inline-block';
+  $('batchProgress').classList.add('show');
+  $('progressBar').style.width = '0%';
+  $('batchLabel').textContent = '생성 진행 중...';
+  $('batchCount').textContent = '0 / ' + lines.length;
+  $('currentStatusText').textContent = '준비 중...';
+  $('resultsSection').classList.add('show');
+  $('resultsList').innerHTML = '';
+  $('resultsSummary').innerHTML = '';
 
   fetch('/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({keyword: kw}),
+    body: JSON.stringify({keywords: text}),
   }).then(response => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -274,13 +376,13 @@ function generate() {
       reader.read().then(({done, value}) => {
         if (done) { finish(); return; }
         buffer += decoder.decode(value, {stream: true});
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        for (const line of lines) {
+        const parts = buffer.split('\n');
+        buffer = parts.pop();
+        for (const line of parts) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
-              handleProgress(data);
+              handleEvent(data);
             } catch {}
           }
         }
@@ -294,78 +396,166 @@ function generate() {
   });
 }
 
-function handleProgress(data) {
-  if (data.error) {
-    setStepError(data.step, data.msg);
-    showToast(data.msg);
-    finish();
-    return;
+function handleEvent(data) {
+  const type = data.type;
+
+  if (type === 'keyword_start' || type === 'step') {
+    const pct = ((data.current - 1) / data.total * 100).toFixed(1);
+    $('progressBar').style.width = pct + '%';
+    $('batchCount').textContent = (data.current - 1) + ' / ' + data.total;
+    $('currentStatusText').textContent = data.msg;
   }
-  if (data.step >= 1 && data.step <= 3) {
-    for (let i = 1; i < data.step; i++) setStepDone(i);
-    setStepActive(data.step);
+
+  if (type === 'keyword_done') {
+    doneCount++;
+    const pct = (data.current / data.total * 100).toFixed(1);
+    $('progressBar').style.width = pct + '%';
+    $('batchCount').textContent = data.current + ' / ' + data.total;
+    $('currentStatusText').textContent = '[' + data.current + '/' + data.total + '] \'' + data.keyword + '\' 완료!';
+
+    generatedResults.push(data);
+    addResultItem(data, data.current);
+    updateResultsSummary(data.total);
   }
-  if (data.done) {
-    setStepDone(1); setStepDone(2); setStepDone(3);
-    currentFilename = data.filename;
-    $('resultTitle').textContent = data.title;
-    $('resultMeta').textContent =
-      data.char_count + '자  |  웹 검색 ' + data.web_count + '건 반영  |  ' + $('keyword').value.trim();
-    $('resultBody').textContent = data.body;
-    $('downloadLink').href = '/download/' + encodeURIComponent(data.filename);
-    $('resultArea').classList.add('show');
-    $('resultArea').scrollIntoView({behavior: 'smooth', block: 'start'});
-    showToast('글 생성 완료!');
+
+  if (type === 'keyword_error') {
+    errorCount++;
+    const pct = (data.current / data.total * 100).toFixed(1);
+    $('progressBar').style.width = pct + '%';
+    $('batchCount').textContent = data.current + ' / ' + data.total;
+    $('currentStatusText').textContent = data.msg;
+
+    addErrorItem(data, data.current);
+    updateResultsSummary(data.total);
+  }
+
+  if (type === 'all_done') {
+    $('batchLabel').textContent = '생성 완료!';
+    $('currentStatus').innerHTML = '<span style="color:var(--success); font-weight:600;">모든 키워드 처리 완료</span>';
+    const pct = 100;
+    $('progressBar').style.width = pct + '%';
+    showToast('총 ' + doneCount + '개 글 생성 완료!' + (errorCount > 0 ? ' (' + errorCount + '개 오류)' : ''));
     loadHistory();
     finish();
   }
+
+  if (data.error && type !== 'keyword_error') {
+    showToast(data.msg);
+    finish();
+  }
+}
+
+function addResultItem(data, num) {
+  const id = 'result-' + num;
+  const html = '<div class="result-item" id="' + id + '">' +
+    '<div class="result-item-header" onclick="toggleResult(\'' + id + '\')">' +
+      '<div class="result-item-left">' +
+        '<div class="result-num">' + num + '</div>' +
+        '<div style="min-width:0;">' +
+          '<div class="result-item-title">' + escHtml(data.title) + '</div>' +
+          '<div class="result-item-meta">' + escHtml(data.keyword) + ' | ' + data.char_count + '자 | 검색 ' + data.web_count + '건</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="result-item-actions">' +
+        '<button class="btn-sm btn-copy" onclick="event.stopPropagation();copyOne(' + num + ')">복사</button>' +
+        '<a class="btn-sm btn-download" href="/download/' + encodeURIComponent(data.filename) + '" download onclick="event.stopPropagation()">다운로드</a>' +
+      '</div>' +
+      '<span class="toggle-arrow" id="arrow-' + id + '">&#9660;</span>' +
+    '</div>' +
+    '<div class="result-item-body" id="body-' + id + '">' +
+      '<div class="result-body-content">' + escHtml(data.body) + '</div>' +
+    '</div>' +
+  '</div>';
+  $('resultsList').insertAdjacentHTML('beforeend', html);
+}
+
+function addErrorItem(data, num) {
+  const id = 'result-' + num;
+  const html = '<div class="result-item error" id="' + id + '">' +
+    '<div class="result-item-header">' +
+      '<div class="result-item-left">' +
+        '<div class="result-num">!</div>' +
+        '<div class="result-item-title" style="color:var(--error)">' + escHtml(data.keyword) + ' - 오류</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="result-error-msg">' + escHtml(data.msg) + '</div>' +
+  '</div>';
+  $('resultsList').insertAdjacentHTML('beforeend', html);
+}
+
+function toggleResult(id) {
+  const body = $('body-' + id);
+  const arrow = $('arrow-' + id);
+  if (!body) return;
+  body.classList.toggle('open');
+  if (arrow) arrow.classList.toggle('open');
+}
+
+function updateResultsSummary(total) {
+  $('resultsSummary').innerHTML =
+    '완료 <strong>' + doneCount + '</strong>개' +
+    (errorCount > 0 ? ' / 오류 <strong style="color:var(--error)">' + errorCount + '</strong>개' : '') +
+    ' / 전체 ' + total + '개';
+}
+
+function copyOne(num) {
+  const el = document.querySelector('#body-result-' + num + ' .result-body-content');
+  if (el) {
+    navigator.clipboard.writeText(el.textContent).then(() => {
+      showToast('복사되었습니다.');
+    }).catch(() => {
+      fallbackCopy(el.textContent);
+    });
+  }
+}
+
+function copyAllResults() {
+  if (generatedResults.length === 0) {
+    showToast('복사할 결과가 없습니다.');
+    return;
+  }
+  let allText = '';
+  for (const r of generatedResults) {
+    allText += '═══════════════════════════════════════\n';
+    allText += '키워드: ' + r.keyword + '\n';
+    allText += '제목: ' + r.title + '\n';
+    allText += '═══════════════════════════════════════\n\n';
+    allText += r.body + '\n\n\n';
+  }
+  navigator.clipboard.writeText(allText).then(() => {
+    showToast('전체 ' + generatedResults.length + '개 글 복사됨');
+  }).catch(() => {
+    fallbackCopy(allText);
+  });
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast('복사되었습니다.');
+}
+
+function stopGeneration() {
+  stopped = true;
+  showToast('생성이 중단됩니다. (현재 진행 중인 키워드까지 완료 후 중단)');
+  // 서버 측 중단은 어려우므로 UI만 정리
+  finish();
 }
 
 function finish() {
   $('generateBtn').disabled = false;
-  $('generateBtn').textContent = '글 생성';
+  $('generateBtn').textContent = '일괄 생성';
+  $('stopBtn').style.display = 'none';
 }
 
-function resetSteps() {
-  for (let i = 1; i <= 3; i++) {
-    const el = $('step' + i);
-    el.className = 'step';
-    el.querySelector('.step-icon').innerHTML = i;
-  }
-}
-function setStepActive(n) {
-  const el = $('step' + n);
-  el.className = 'step active';
-  el.querySelector('.step-icon').innerHTML = '<div class="spinner"></div>';
-}
-function setStepDone(n) {
-  const el = $('step' + n);
-  el.className = 'step done';
-  el.querySelector('.step-icon').innerHTML = '&#10003;';
-}
-function setStepError(n, msg) {
-  for (let i = 1; i <= 3; i++) {
-    const el = $('step' + i);
-    if (el.classList.contains('active')) {
-      el.className = 'step error';
-      el.querySelector('.step-icon').innerHTML = '!';
-    }
-  }
-}
-
-function copyResult() {
-  const text = $('resultBody').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    showToast('클립보드에 복사되었습니다.');
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('클립보드에 복사되었습니다.');
-  });
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 function showToast(msg) {
@@ -398,6 +588,7 @@ function loadHistory() {
   });
 }
 
+updateKeywordCount();
 loadHistory();
 </script>
 
